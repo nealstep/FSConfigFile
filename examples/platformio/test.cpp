@@ -6,12 +6,19 @@
 
 #include "FSConfigFile.h"
 
+
+// global constants
+static const uint16_t delayMedium = 250;
+static const uint16_t delayLong = 1000;
+static const uint32_t interval = 30000;
+
+// major classes
 FSConfigFile fsConfigFile;
 FSConfigFile fsConfigFile2;
 
+// global variables
 uint32_t currentMillis;
 uint32_t previousMillis = 0;
-uint32_t interval = 30000;
 uint16_t interval_count = 0;
 bool ledStatus = false;
 
