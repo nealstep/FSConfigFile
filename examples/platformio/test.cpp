@@ -3,6 +3,7 @@
 #if not defined(ESP8266) and not defined(ESP32)
 #error "Not supported"
 #endif  // ! ESP8266 and ! ESP32
+#include <ArduinoLog.h>
 
 #include "FSConfigFile.h"
 
@@ -22,36 +23,39 @@ bool ledStatus = false;
 
 // Config Data
 void config_setup(void) {
+    Log.traceln("config_setup");
+    Log.verboseln("Creating fields");
     fsConfigFile.add("hostname", fsConfigFile.CHARS, 32);
     fsConfigFile.add("port", fsConfigFile.U16);
     // set defaults, if desired
+    Log.verboseln("Setting defaults");
     fsConfigFile.set("hostname", "");
     fsConfigFile.set("port", static_cast<uint16_t>(2112));
 }
 
 void setup() {
     Serial.begin(MY_BAUD);
+    Log.begin(LOG_LEVEL_VERBOSE, &Serial, true);
     delay(delayLong * 5);
-    Serial.println("Starting");
+    Log.traceln("Starting");
     config_setup();
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, ledStatus);
 
-    if (false) {
-        //    if (fsConfigFile.exists()) {
-        Serial.println("Reading Config");
-        // fsConfigFile.read();
+    if (fsConfigFile.exists()) {
+        Log.verboseln("Reading config");
+        fsConfigFile.read();
     } else {
-        if (!fsConfigFile.set("hostname", "victoria.lan"))
-            Serial.println("Setting hostname failed");
-        if (!fsConfigFile.set("port", static_cast<uint16_t>(4140)))
-            Serial.println("Setting port failed");
+        // change hostname so we know not defaults
+        fsConfigFile.set("hostname", "tester");
+        Log.verboseln("Writing default config");
+        fsConfigFile.write();
     }
     previousMillis = millis();
 }
 
 void blink(void) {
-    Serial.println("Blink");
+    Log.traceln("blink");
     ledStatus = !ledStatus;
     digitalWrite(LED_BUILTIN, ledStatus);
 }
@@ -59,20 +63,18 @@ void blink(void) {
 void loop() {
     currentMillis = millis();
     if (currentMillis - previousMillis >= interval) {
+        const char *s;
+        uint16_t p;
+
+        Log.traceln("Interval");
         blink();
         previousMillis = currentMillis;
-        const char *s;
         if (fsConfigFile.get("hostname", s)) {
-            Serial.print("hostname: ");
-            Serial.println(s);
-        } else
-            Serial.println("Getting hostname failed");
-        uint16_t p;
+            Log.noticeln("hostname: %s", s);
+        };
         if (fsConfigFile.get("port", p)) {
-            Serial.print("port: ");
-            Serial.println(p);
-        } else
-            Serial.println("Getting port failed");
+            Log.noticeln("port: %d", p);
+        }
         while (true) delay(delayLong);
     }
 }
