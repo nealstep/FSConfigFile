@@ -1,19 +1,22 @@
-#include <Arduino.h>
+#include "base.h"
 
 #if not defined(ESP8266) and not defined(ESP32)
 #error "Not supported"
 #endif  // ! ESP8266 and ! ESP32
-#include <ArduinoLog.h>
 
 #include "FSConfigFile.h"
+#include "StreamCmd.h"
+
+#include "cmd.h"
 
 // global constants
 static const uint16_t delayMedium = 250;
 static const uint16_t delayLong = 1000;
-static const uint32_t interval = 5000;
+static const uint32_t interval = 30000;
 
 // major classes
 FSConfigFile fsConfigFile;
+StreamCmd streamCmd;
 
 // global variables
 uint32_t currentMillis;
@@ -36,6 +39,7 @@ void config_setup(void) {
 void setup() {
     Serial.begin(MY_BAUD);
     Log.begin(LOG_LEVEL_VERBOSE, &Serial, true);
+    streamCmd.setStream(Serial);
     delay(delayLong * 5);
     Log.traceln("Starting");
     config_setup();
@@ -61,20 +65,14 @@ void blink(void) {
 }
 
 void loop() {
+    if (streamCmd.loop()) {
+        Log.verboseln("Got cmd: %s", streamCmd.get());
+        cmdHandle(streamCmd.get());
+    }
     currentMillis = millis();
     if (currentMillis - previousMillis >= interval) {
-        const char *s;
-        uint16_t p;
-
         Log.traceln("Interval");
         blink();
         previousMillis = currentMillis;
-        if (fsConfigFile.get("hostname", s)) {
-            Log.noticeln("hostname: %s", s);
-        };
-        if (fsConfigFile.get("port", p)) {
-            Log.noticeln("port: %d", p);
-        }
-        while (true) delay(delayLong);
     }
 }

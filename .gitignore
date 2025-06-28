@@ -5,3 +5,5 @@
 .vscode/ipch
 secret.*
 src/test.cpp
+src/cmd*.cpp
+src/cmd*.h

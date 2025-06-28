@@ -3,17 +3,24 @@
 #include <ArduinoLog.h>
 #include <LittleFS.h>
 
-#include "sutils.h"
-
 #if not defined(ESP8266) and not defined(ESP32)
 #error "Not supported"
 #endif  // ! ESP8266 and ! ESP32
 
 const char FSConfigFile::defaultFilename[nameLength] = "/config.json";
 
+bool safe_copy(char *dest, const char *src, size_t size) {
+    if (strlen(src) < size) {
+        strlcpy(dest, src, size);
+    } else {
+        return false;
+    }
+    return true;
+}
+
 FSConfigFile::FSConfigFile(const char *filename) {
     Log.traceln("FSConfigFile init");
-    if (!safe_str_copy(fname, filename, nameLength)) {
+    if (!safe_copy(fname, filename, nameLength)) {
         Log.errorln("Filename copy failed");
     }
 }
@@ -49,31 +56,38 @@ bool FSConfigFile::read(void) {
     LittleFS.end();
     if (!ret) return false;
     for (uint8_t i = 0; i < configCount; i++) {
+        if (!jDoc[config[i].name].is<JsonVariant>()) {
+            Log.warning("Key not found: %s", config[i].name);
+            ret = false;
+        }
         switch (config[i].type) {
             case CHARS:
                 if (jDoc[config[i].name].is<const char *>()) {
-                    if (!safe_str_copy(config[i].datum.chars,
+                    if (!safe_copy(config[i].datum.chars,
                                        jDoc[config[i].name], config[i].size)) {
                         Log.errorln("String copy failed for %s",
                                     config[i].name);
                         ret = false;
                     }
                 } else {
-                    Log.warning("Key not found: %s", config[i].name);
+                    Log.warning("Bad type not chars: %s", config[i].name);
+                    ret = false;
                 }
                 break;
             case U16:
-                if (jDoc[config[i].name].is<uint16_t>()) {
+                if (jDoc[config[i].name].is<uint16_t>())
                     config[i].datum.u16 = jDoc[config[i].name];
-                } else {
-                    Log.warning("Key not found: %s", config[i].name);
+                else {
+                    Log.warning("Bad type not u16: %s", config[i].name);
+                    ret = false;
                 }
                 break;
             case I16:
-                if (jDoc[config[i].name].is<int16_t>()) {
+                if (jDoc[config[i].name].is<int16_t>())
                     config[i].datum.i16 = jDoc[config[i].name];
-                } else {
-                    Log.warning("Key not found: %s", config[i].name);
+                else {
+                    Log.warning("Bad type not i16: %s", config[i].name);
+                    ret = false;
                 }
                 break;
             default:
@@ -123,6 +137,13 @@ bool FSConfigFile::write(void) {
     return ret;
 }
 
+const char *FSConfigFile::getName(uint8_t id) {
+    if (id < configCount) {
+        return config[id].name;
+    }
+    return nullptr;
+}
+
 uint8_t FSConfigFile::find(const char *name, DataTypeCodes type) {
     uint8_t ret = badItem;
     bool found = false;
@@ -167,7 +188,7 @@ bool FSConfigFile::add(const char *name, DataTypeCodes type, uint8_t size) {
         return false;
     }
     item = configCount++;
-    if (!safe_str_copy(config[item].name, name, nameLength)) {
+    if (!safe_copy(config[item].name, name, nameLength)) {
         Log.errorln("Copy failed for new item: %s", name);
     }
     config[item].type = type;
@@ -180,6 +201,17 @@ bool FSConfigFile::add(const char *name, DataTypeCodes type, uint8_t size) {
         }
     }
     return true;
+}
+
+FSConfigFile::DataTypeCodes FSConfigFile::getType(const char *name) {
+    uint8_t item;
+
+    Log.traceln("FSConfigFile::getType");
+    item = find(name, ANY);
+    if (item == badItem) {
+        Log.error("Item not found");
+    }
+    return config[item].type;
 }
 
 bool FSConfigFile::get(const char *name, const char *&datum) {
@@ -218,7 +250,7 @@ bool FSConfigFile::set(const char *name, const char *datum) {
     Log.traceln("FSConfigFile::set chars");
     item = find(name, CHARS);
     if (item == badItem) return false;
-    if (!safe_str_copy(config[item].datum.chars, datum, config[item].size)) {
+    if (!safe_copy(config[item].datum.chars, datum, config[item].size)) {
         Log.errorln("Setting string for %s failed", name);
         return false;
     }

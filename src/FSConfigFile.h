@@ -30,8 +30,9 @@ class FSConfigFile {
     bool exists(void);
     bool read(void);
     bool write(void);
-    const char *getName(uint8_t id) { return config[id].name; };
+    const char *getName(uint8_t id);
     bool add(const char *name, DataTypeCodes type, uint8_t size = 0);
+    DataTypeCodes getType(const char *name);
     bool get(const char *name, const char *&datum);
     bool get(const char *name, uint16_t &datum);
     bool get(const char *name, int16_t &datum);
